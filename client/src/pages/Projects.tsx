@@ -253,6 +253,11 @@ const Projects = () => {
                         project={project}
                         isGenerating={isGenerating}
                         device={device}
+                        onProjectCodeChange={(newCode) =>
+                            setProject((prev) =>
+                                prev ? { ...prev, current_code: newCode } : prev
+                            )
+                        }
                     />
                 </div>
             </div>

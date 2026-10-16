@@ -411,6 +411,20 @@ export const iframeScript = `
             }
             }
 
+            function getCleanOuterHtml(el) {
+                if (!el) return '';
+                const clone = el.cloneNode(true);
+                clone.classList.remove('ai-selected-element');
+                clone.removeAttribute('data-ai-selected');
+                if (clone.style) clone.style.outline = '';
+                clone.querySelectorAll('.ai-selected-element, [data-ai-selected]').forEach(function (child) {
+                    child.classList.remove('ai-selected-element');
+                    child.removeAttribute('data-ai-selected');
+                    if (child.style) child.style.outline = '';
+                });
+                return clone.outerHTML;
+            }
+
             document.addEventListener('click', function (e) {
             e.preventDefault();
             e.stopPropagation();
@@ -426,6 +440,7 @@ export const iframeScript = `
             }
 
             selectedElement = target;
+            const cleanOuter = getCleanOuterHtml(selectedElement);
             selectedElement.classList.add('ai-selected-element');
             selectedElement.setAttribute('data-ai-selected', 'true');
 
@@ -437,6 +452,7 @@ export const iframeScript = `
                 tagName: selectedElement.tagName,
                 className: selectedElement.className,
                 text: selectedElement.innerText,
+                outerHTML: cleanOuter,
                 styles: {
                     padding: computedStyle.padding,
                     margin: computedStyle.margin,
@@ -462,6 +478,37 @@ export const iframeScript = `
 
                 if (updates.styles) {
                 Object.assign(selectedElement.style, updates.styles);
+                }
+            } else if (event.data.type === 'REPLACE_ELEMENT' && selectedElement) {
+                const newHtml = event.data.payload?.html;
+                if (newHtml && selectedElement.parentNode) {
+                    const temp = document.createElement('div');
+                    temp.innerHTML = newHtml.trim();
+                    const newEl = temp.firstElementChild || temp;
+                    selectedElement.parentNode.replaceChild(newEl, selectedElement);
+                    selectedElement = newEl;
+                    const cleanOuter = getCleanOuterHtml(selectedElement);
+                    selectedElement.classList.add('ai-selected-element');
+                    selectedElement.setAttribute('data-ai-selected', 'true');
+
+                    const computedStyle = window.getComputedStyle(selectedElement);
+                    window.parent.postMessage({
+                        type: 'ELEMENT_SELECTED',
+                        payload: {
+                            tagName: selectedElement.tagName,
+                            className: selectedElement.className,
+                            text: selectedElement.innerText,
+                            outerHTML: cleanOuter,
+                            styles: {
+                                padding: computedStyle.padding,
+                                margin: computedStyle.margin,
+                                backgroundColor: computedStyle.backgroundColor,
+                                color: computedStyle.color,
+                                fontSize: computedStyle.fontSize
+                            }
+                        }
+                    }, '*');
+                    window.parent.postMessage({ type: 'ELEMENT_REPLACED' }, '*');
                 }
             } else if (event.data.type === 'CLEAR_SELECTION_REQUEST') {
                 clearSelected();

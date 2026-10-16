@@ -27,6 +27,12 @@
 - Real-time preview with instant updates
 - Context-aware AI assistant for design modifications
 
+### ⚡ **Element-Level AI Copilot (In-Preview Click-to-Prompt)**
+- Click any section, card, or button in the live preview to prompt localized AI transformations
+- Fast in-place DOM updates without re-generating the entire HTML document
+- Quick enhancement presets (Glassmorphism, dark gradient glow, animations, responsive grid)
+- Saves credits and keeps layout structure pristine
+
 ### 🛠️ **Advanced Project Management**
 - Version control for all website iterations
 - Project history and rollback capabilities
@@ -188,7 +194,8 @@ ai-site-builder/
 - `POST /api/user/purchase-credits` - Create Stripe checkout session
 
 ### Project Management
-- `POST /api/project/revision/:projectId` - Make project revision
+- `POST /api/project/revision/:projectId` - Make project revision (full page)
+- `POST /api/project/modify-element/:projectId` - In-place AI Element Copilot revision
 - `PUT /api/project/save/:projectId` - Save project code
 - `GET /api/project/rollback/:projectId/:versionId` - Rollback to version
 - `DELETE /api/project/delete/:projectId` - Delete project

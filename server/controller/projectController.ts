@@ -474,3 +474,161 @@ export const saveProjectCode = async (req: Request, res: Response) => {
         return res.status(500).json({ message: error.message || error.code });
     }
 };
+
+// Modify specific element with AI (Element-Level Copilot)
+export const modifyElement = async (req: Request, res: Response) => {
+    const userId = req.userId;
+
+    try {
+        if (!userId) {
+            return res.status(401).json({ message: "Unauthorized" });
+        }
+
+        const { projectId } = req.params;
+        const { prompt, elementHtml } = req.body;
+
+        if (!prompt || typeof prompt !== "string" || prompt.trim() === "") {
+            return res
+                .status(400)
+                .json({ message: "Please enter a valid modification instruction" });
+        }
+
+        if (!elementHtml || typeof elementHtml !== "string" || elementHtml.trim() === "") {
+            return res
+                .status(400)
+                .json({ message: "No element HTML snippet provided" });
+        }
+
+        const user = await prisma.user.findUnique({
+            where: {
+                id: userId,
+            },
+        });
+
+        if (!user) {
+            return res.status(404).json({ message: "User not found" });
+        }
+
+        if (user.credits < 2) {
+            return res
+                .status(403)
+                .json({ message: "You need at least 2 credits to modify an element" });
+        }
+
+        const project = await prisma.websiteProject.findUnique({
+            where: {
+                id: projectId,
+                userId,
+            },
+        });
+
+        if (!project) {
+            return res.status(404).json({ message: "Project not found" });
+        }
+
+        // Deduct 2 credits for element revision
+        await prisma.user.update({
+            where: {
+                id: userId,
+            },
+            data: {
+                credits: {
+                    decrement: 2,
+                },
+            },
+        });
+
+        const model = process.env.AI_MODEL || "kwaipilot/kat-coder-pro:free";
+
+        const response = await openai.chat.completions.create({
+            model,
+            messages: [
+                {
+                    role: "system",
+                    content: `You are an expert frontend UI engineer specialized in Tailwind CSS.
+The user wants to modify a specific HTML element or component from their website preview.
+
+CRITICAL REQUIREMENTS:
+- Return ONLY the updated HTML element (including its opening tag, attributes, inner content, and closing tag).
+- Do NOT wrap in markdown code blocks (\`\`\`html or \`\`\`).
+- Do NOT include <html>, <head>, or <body> tags.
+- Use Tailwind CSS utility classes for ALL styling and animations.
+- Maintain sensible tag structure (e.g. if modifying a <button>, return a <button>; if <nav>, return a <nav>; if a card <div>, return the full card <div>).
+- If interactive behavior is required, include inline JavaScript or attributes cleanly.
+- Return RAW HTML ONLY with NO conversational explanations.`,
+                },
+                {
+                    role: "user",
+                    content: `Current element HTML:
+${elementHtml}
+
+Requested changes:
+"${prompt}"`,
+                },
+            ],
+        });
+
+        let updatedHtml = response.choices[0]?.message?.content || "";
+
+        if (!updatedHtml || updatedHtml.trim() === "") {
+            // Refund credits
+            await prisma.user.update({
+                where: {
+                    id: userId,
+                },
+                data: {
+                    credits: {
+                        increment: 2,
+                    },
+                },
+            });
+
+            return res
+                .status(500)
+                .json({ message: "AI failed to generate element modification. Credits refunded." });
+        }
+
+        // Clean any code block fences if returned
+        updatedHtml = updatedHtml
+            .replace(/```[a-z]*\n?/gi, "")
+            .replace(/```$/g, "")
+            .trim();
+
+        // Log revision conversation
+        await prisma.conversation.create({
+            data: {
+                role: "assistant",
+                content: `✨ Modified element with AI: "${prompt}"`,
+                projectId,
+            },
+        });
+
+        return res.json({
+            message: "Element modified successfully",
+            updatedHtml,
+            creditsRemaining: user.credits - 2,
+        });
+    } catch (error: any) {
+        // Refund credits on failure
+        if (userId) {
+            await prisma.user.update({
+                where: {
+                    id: userId,
+                },
+                data: {
+                    credits: {
+                        increment: 2,
+                    },
+                },
+            }).catch(() => {});
+        }
+
+        console.error(
+            "Error in modifyElement controller",
+            error.message || error.code
+        );
+
+        return res.status(500).json({ message: error.message || error.code || "Server error" });
+    }
+};
+

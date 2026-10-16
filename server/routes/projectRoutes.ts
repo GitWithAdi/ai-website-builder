@@ -7,6 +7,7 @@ import {
     getProjectPreview,
     getPublishedProjects,
     makeRevision,
+    modifyElement,
     rollbackToVersion,
     saveProjectCode,
 } from "../controller/projectController.js";
@@ -14,6 +15,7 @@ import {
 const projectRouter = express.Router();
 
 projectRouter.post("/revision/:projectId", protect, makeRevision);
+projectRouter.post("/modify-element/:projectId", protect, modifyElement);
 projectRouter.put("/save/:projectId", protect, saveProjectCode);
 projectRouter.get(
     "/rollback/:projectId/:versionId",

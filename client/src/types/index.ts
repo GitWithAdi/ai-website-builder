@@ -35,3 +35,17 @@ export interface Project {
     versions: Version[];
     current_version_index: string;
 }
+
+export interface SelectedElement {
+    tagName: string;
+    className: string;
+    text: string;
+    outerHTML?: string;
+    styles: {
+        padding: string;
+        margin: string;
+        backgroundColor: string;
+        color: string;
+        fontSize: string;
+    };
+}
